@@ -19,7 +19,7 @@ ssedbot is a telegram bot that emulates the sed command used in Unix terminals
 
 <p align="center">
     <img src="https://media.giphy.com/media/MZXKtGOGhRZyTjWp1K/giphy.gif" alt="GIF"> <br>
-    <em>How does it work</em>
+    <em>How it works</em>
 </p>
 <br>
 
