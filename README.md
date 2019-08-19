@@ -17,7 +17,11 @@
 ## Description
 ssedbot is a telegram bot that emulates the sed command used in Unix terminals
 
-![GIF](https://media.giphy.com/media/MZXKtGOGhRZyTjWp1K/giphy.gif)
+<p align="center">
+    <img src="https://media.giphy.com/media/MZXKtGOGhRZyTjWp1K/giphy.gif" alt="GIF"> <br>
+    <em>How does it work</em>
+</p>
+<br>
 
 From Wikipedia, The Free Encyclopedia: sed (stream editor) is a Unix utility that parses and transforms text, using a simple, compact programming language.
 
