@@ -1,21 +1,21 @@
 <h1 align="center">
-<a href="https://t.me/ssedbot">@ssedbot</a>
+<a href="https://t.me/sedbot">@sedbot</a>
 </h1>
 
 <p align="center">
-<a href="https://www.gnu.org/licenses/gpl-3.0.en.html"><img alt="license" src="https://img.shields.io/github/license/casungo/ssedbot"/></a>
+<a href="https://www.gnu.org/licenses/gpl-3.0.en.html"><img alt="license" src="https://img.shields.io/github/license/casungo/sedbot"/></a>
 <a href="https://python-telegram-bot.org/"><img alt="framework" src="https://img.shields.io/badge/framework-python--telegram--bot-informational"/></a>
 <a href="https://casungo.it"><img alt="author" src="https://img.shields.io/badge/author-casungo-red"/></a>
 <a href="https://python.org"><img alt="author" src="https://img.shields.io/badge/language-python-yellow"/></a>
 <br>
 <br>
-<img alt="GitHub stars" src="https://img.shields.io/github/stars/casungo/ssedbot?style=social">
-<img alt="GitHub forks" src="https://img.shields.io/github/forks/casungo/ssedbot?style=social">
-<img alt="GitHub watchers" src="https://img.shields.io/github/watchers/casungo/ssedbot?style=social">
+<img alt="GitHub stars" src="https://img.shields.io/github/stars/casungo/sedbot?style=social">
+<img alt="GitHub forks" src="https://img.shields.io/github/forks/casungo/sedbot?style=social">
+<img alt="GitHub watchers" src="https://img.shields.io/github/watchers/casungo/sedbot?style=social">
 </p>
 
 ## Description
-ssedbot is a telegram bot that emulates the sed command used in Unix terminals
+sedbot is a telegram bot that emulates the sed command used in Unix terminals
 
 <p align="center">
     <img src="https://media.giphy.com/media/MZXKtGOGhRZyTjWp1K/giphy.gif" alt="GIF"> <br>
@@ -41,9 +41,9 @@ Get the version 2.x.x of **Python** [here](https://www.python.org/downloads/rele
 Then, type this in your home folder:
 
 ```
-git clone https://github.com/casungo/ssedbot.git
+git clone https://github.com/casungo/sedbot.git
 
-cd ssedbot
+cd sedbot
 
 python -m pip install -r requirements.txt
 ```
@@ -80,7 +80,7 @@ toast
 
 
 ### Protip: Keep your bot running even when you exit your session
-To **prevent** your bot from stopping when you **end your session**, use the **nohup** command in the ssedbot folder:
+To **prevent** your bot from stopping when you **end your session**, use the **nohup** command in the sedbot folder:
 
 ```
 nohup python bot.py &
