@@ -16,7 +16,7 @@ def text_handler(update, context):
             old = split[1]
             new = split[2]
             if old != "" and new != "":
-                output = "<i>I think this is better:</i>\n{}".format(replymessage.replace(old, new))
+                output = "I think this is better:\n<code>{}</code>".format(replymessage.replace(old, new))
                 context.bot.send_message(chat_id=update.message.chat_id, text=output, reply_to_message_id=update.message.reply_to_message.message_id, parse_mode='HTML')
 
 message_handler = MessageHandler(Filters.text, text_handler)
