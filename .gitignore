@@ -1,2 +1,5 @@
 /secret.py
 /__pycache__
+/.vscode
+.aider*
+/.env
