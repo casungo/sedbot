@@ -1,8 +1,15 @@
 import re
+import os
 import logging
+from dotenv import load_dotenv
 from telegram import Update, BotCommand
 from telegram.ext import Application, CommandHandler, MessageHandler, filters
-from secret import BOT_TOKEN
+
+# Load environment variables
+load_dotenv()
+BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN")
+if not BOT_TOKEN:
+    raise ValueError("TELEGRAM_BOT_TOKEN not found in environment variables")
 
 # Set up logging
 logging.basicConfig(
@@ -14,12 +21,20 @@ logger = logging.getLogger(__name__)
 async def start(update: Update, context):
     """Send welcome message with usage instructions"""
     help_text = (
-        "🛠 Sed Bot Usage:\n\n"
-        "Reply to a message with:\n"
-        "s/pattern/replacement/flags\n\n"
-        "Examples:\n"
-        "s/cat/dog/g - Replace all 'cat' with 'dog'\n"
-        "s/error//i - Remove 'error' (case-insensitive)"
+        "👋 Welcome to SedBot!\n\n"
+        "I can help you transform text messages using sed-style commands.\n\n"
+        "🔧 Basic Usage:\n"
+        "1. Reply to any message\n"
+        "2. Use the format: s/pattern/replacement/flags\n\n"
+        "🚀 Available Flags:\n"
+        "• g - Replace all occurrences\n"
+        "• i - Case-insensitive matching\n"
+        "• m - Multiline matching\n\n"
+        "📝 Examples:\n"
+        "• s/hello/hi/g - Replace all 'hello' with 'hi'\n"
+        "• s/ERROR/error/i - Replace 'ERROR' case-insensitive\n"
+        "• s/old// - Remove first 'old'\n\n"
+        "💡 Tip: You can use regular expressions in the pattern!"
     )
     await update.message.reply_text(help_text)
 
