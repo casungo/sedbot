@@ -50,8 +50,8 @@ pip install -r requirements.txt
 3. Set up your bot:
 
    - Get a token from [@BotFather](https://t.me/botfather)
-   - Rename `config.secret.py` to `secret.py`
-   - Add your bot token to `secret.py`
+   - Rename `.env.sample` to `.env`
+   - Add your bot token to `.env`
 
 4. Start the bot:
 
