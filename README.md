@@ -5,7 +5,7 @@
 <p align="center">
 <a href="https://www.gnu.org/licenses/gpl-3.0.en.html"><img alt="license" src="https://img.shields.io/github/license/casungo/sedbot"/></a>
 <a href="https://casungo.top"><img alt="author" src="https://img.shields.io/badge/author-casungo-red"/></a>
-<a href="https://developer.mozilla.org/docs/Web/JavaScript"><img alt="language" src="https://img.shields.io/badge/language-javascript-yellow"/></a>
+<a href="https://developer.mozilla.org/docs/Web/TypeScript"><img alt="language" src="https://img.shields.io/badge/language-typescript-blue"/></a>
 <a href="https://workers.cloudflare.com/"><img alt="runtime" src="https://img.shields.io/badge/runtime-cloudflare--workers-orange"/></a>
 </p>
 
