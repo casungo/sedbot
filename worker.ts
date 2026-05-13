@@ -3,6 +3,8 @@ import { Bot, webhookCallback } from 'grammy';
 interface Env {
   TELEGRAM_BOT_TOKEN: string;
   TELEGRAM_WEBHOOK_SECRET?: string;
+  CF_PAGES?: string;
+  CF_PAGES_BRANCH?: string;
 }
 
 interface TelegramMessage {
@@ -55,12 +57,20 @@ export default {
     }
 
     try {
-      if (update.guest_message) {
-        await handleGuestUpdate(update.guest_message, env);
+      const botToken = getBotToken(env);
+      if (!botToken) {
+        console.error(
+          'Missing TELEGRAM_BOT_TOKEN; skipping update processing. Verify the secret is set on this exact Worker environment.'
+        );
         return new Response('OK', { status: 200 });
       }
 
-      const bot = getBot(env);
+      if (update.guest_message) {
+        await handleGuestUpdate(update.guest_message, botToken);
+        return new Response('OK', { status: 200 });
+      }
+
+      const bot = getBot(botToken);
       const handler = webhookCallback(bot, 'cloudflare-mod');
       return await handler(request);
     } catch (error: unknown) {
@@ -70,11 +80,16 @@ export default {
   },
 };
 
-function getBot(env: Env): Bot {
-  const cached = botCache.get(env.TELEGRAM_BOT_TOKEN);
+function getBotToken(env: Env): string | null {
+  const token = env.TELEGRAM_BOT_TOKEN?.trim();
+  return token ? token : null;
+}
+
+function getBot(botToken: string): Bot {
+  const cached = botCache.get(botToken);
   if (cached) return cached;
 
-  const bot = new Bot(env.TELEGRAM_BOT_TOKEN);
+  const bot = new Bot(botToken);
 
   bot.command('start', async (ctx) => {
     await ctx.reply(helpText(), {
@@ -99,11 +114,11 @@ function getBot(env: Env): Bot {
     console.error('grammY error', error.error);
   });
 
-  botCache.set(env.TELEGRAM_BOT_TOKEN, bot);
+  botCache.set(botToken, bot);
   return bot;
 }
 
-async function handleGuestUpdate(guestMessage: GuestMessage, env: Env): Promise<void> {
+async function handleGuestUpdate(guestMessage: GuestMessage, botToken: string): Promise<void> {
   const queryId = guestMessage.guest_query_id;
   const summonText = guestMessage.text;
   if (!queryId || !summonText) return;
@@ -111,21 +126,21 @@ async function handleGuestUpdate(guestMessage: GuestMessage, env: Env): Promise<
   try {
     const parsed = parseSedCommand(summonText);
     if (!parsed) {
-      await answerGuestQuery(env, queryId, 'Reply with: s/pattern/replacement/flags and include a target message.');
+      await answerGuestQuery(botToken, queryId, 'Reply with: s/pattern/replacement/flags and include a target message.');
       return;
     }
 
     const sourceText = guestMessage.reply_to_message?.text ?? guestMessage.quoted_message?.text;
     if (!sourceText) {
-      await answerGuestQuery(env, queryId, 'I need a replied text message to transform.');
+      await answerGuestQuery(botToken, queryId, 'I need a replied text message to transform.');
       return;
     }
 
     const modified = applySed(sourceText, parsed);
-    await answerGuestQuery(env, queryId, `Modified text:\n${modified}`);
+    await answerGuestQuery(botToken, queryId, `Modified text:\n${modified}`);
   } catch (error: unknown) {
     const message = error instanceof Error ? error.message : String(error);
-    await answerGuestQuery(env, queryId, `❌ Error: ${message}`);
+    await answerGuestQuery(botToken, queryId, `❌ Error: ${message}`);
   }
 }
 
@@ -196,8 +211,8 @@ function parseSedCommand(command: string): ParsedSedCommand | null {
   return { pattern, replacement, flags };
 }
 
-async function answerGuestQuery(env: Env, guestQueryId: string, text: string): Promise<void> {
-  const endpoint = `https://api.telegram.org/bot${env.TELEGRAM_BOT_TOKEN}/answerGuestQuery`;
+async function answerGuestQuery(botToken: string, guestQueryId: string, text: string): Promise<void> {
+  const endpoint = `https://api.telegram.org/bot${botToken}/answerGuestQuery`;
   const payload = {
     guest_query_id: guestQueryId,
     text,
