@@ -1,4 +1,5 @@
 import { Bot, webhookCallback } from 'grammy';
+import { runSed, type SedOptions } from './sedEngine';
 
 interface Env {
   TELEGRAM_BOT_TOKEN: string;
@@ -27,13 +28,8 @@ interface TelegramUpdate {
   guest_message?: GuestMessage;
 }
 
-interface ParsedSedCommand {
-  pattern: string;
-  replacement: string;
-  flags: string;
-}
-
 const botCache = new Map<string, Bot>();
+const DONATE_URL = 'https://casungo.top/donate';
 
 export default {
   async fetch(request: Request, env: Env): Promise<Response> {
@@ -89,6 +85,12 @@ function getBot(botToken: string): Bot {
   const bot = new Bot(botToken);
 
   bot.command('start', async (ctx) => {
+    await ctx.reply(startText(), {
+      reply_parameters: { message_id: ctx.msg.message_id },
+    });
+  });
+
+  bot.command('help', async (ctx) => {
     await ctx.reply(helpText(), {
       reply_parameters: { message_id: ctx.msg.message_id },
     });
@@ -98,13 +100,20 @@ function getBot(botToken: string): Bot {
     const message = ctx.message as TelegramMessage;
     if (!message.reply_to_message?.text) return;
 
-    const parsed = parseSedCommand(message.text ?? '');
-    if (!parsed) return;
+    const invocation = parseSedInvocation(message.text ?? '');
+    if (!invocation) return;
 
-    const modified = applySed(message.reply_to_message.text, parsed);
-    await ctx.reply(`Modified text:\n${modified}`, {
-      reply_parameters: { message_id: message.message_id },
-    });
+    try {
+      const modified = runSed(invocation.script, message.reply_to_message.text, invocation.options);
+      await ctx.reply(`Modified text:\n${modified}`, {
+        reply_parameters: { message_id: message.message_id },
+      });
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      await ctx.reply(`Error: ${errorMessage}`, {
+        reply_parameters: { message_id: message.message_id },
+      });
+    }
   });
 
   bot.catch((error) => {
@@ -121,10 +130,9 @@ async function handleGuestUpdate(guestMessage: GuestMessage, botToken: string): 
   if (!queryId || !summonText) return;
 
   try {
-    const sedCommand = extractSedCommand(summonText);
-    const parsed = sedCommand ? parseSedCommand(sedCommand) : null;
-    if (!parsed) {
-      await answerGuestQuery(botToken, queryId, 'Reply with: s/pattern/replacement/flags and include a target message.');
+    const invocation = extractSedInvocation(summonText);
+    if (!invocation) {
+      await answerGuestQuery(botToken, queryId, 'Reply with a sed script such as s/pattern/replacement/g and include a target message.');
       return;
     }
 
@@ -134,7 +142,7 @@ async function handleGuestUpdate(guestMessage: GuestMessage, botToken: string): 
       return;
     }
 
-    const modified = applySed(sourceText, parsed);
+    const modified = runSed(invocation.script, sourceText, invocation.options);
     await answerGuestQuery(botToken, queryId, `Modified text:\n${modified}`);
   } catch (error: unknown) {
     const message = error instanceof Error ? error.message : String(error);
@@ -142,81 +150,129 @@ async function handleGuestUpdate(guestMessage: GuestMessage, botToken: string): 
   }
 }
 
-function applySed(sourceText: string, parsed: ParsedSedCommand): string {
-  const { pattern, replacement, flags } = parsed;
-  const jsFlags = `${flags.includes('i') ? 'i' : ''}${flags.includes('m') ? 'm' : ''}${flags.includes('g') ? 'g' : ''}`;
-  const regex = new RegExp(pattern, jsFlags);
-  return sourceText.replace(regex, replacement);
+function startText(): string {
+  return (
+    '👋 Welcome to SedBot!\n\n' +
+    'I run sed scripts on replied Telegram messages.\n\n' +
+    'Quick use:\n' +
+    '1. Reply to a text message.\n' +
+    '2. Send a sed script, for example: s/cat/dog/g\n\n' +
+    'Useful commands:\n' +
+    '/help - detailed syntax, examples, supported commands, and limits\n' +
+    `/start - this quick introduction\n\n` +
+    `Support the project: ${DONATE_URL}`
+  );
 }
 
 function helpText(): string {
   return (
-    '👋 Welcome to SedBot!\n\n' +
-    'Reply to any message with: s/pattern/replacement/flags\n\n' +
-    'Flags:\n' +
-    '• g - Replace all occurrences\n' +
-    '• i - Case-insensitive matching\n' +
-    '• m - Multiline matching\n\n' +
-    'Guest mode is supported when enabled in BotFather.'
+    'SedBot help\n\n' +
+    'How to use it\n' +
+    'Reply to any text message with a sed script. SedBot applies the script to the replied text and sends back the modified text.\n\n' +
+    'Basic examples\n' +
+    's/cat/dog/       replace the first cat on each line\n' +
+    's/cat/dog/g      replace every cat on each line\n' +
+    's/error/ERROR/i  case-insensitive replacement\n' +
+    's/[0-9]/#/g      replace digits with #\n' +
+    's/foo/(&)/       & expands to the full match\n' +
+    's/\\(foo\\)/[\\1]/  BRE capture and backreference\n\n' +
+    'Options\n' +
+    'sed -n SCRIPT    suppress default output; print only with p, =, etc.\n' +
+    'sed -E SCRIPT    use extended regular expressions\n' +
+    'sed -En SCRIPT   combine -E and -n\n' +
+    'SCRIPT           you can also send the script without the sed prefix\n\n' +
+    'Addresses\n' +
+    '2p               print line 2\n' +
+    '$p               print the last line\n' +
+    '/error/p         print lines matching error\n' +
+    '2,5d             delete lines 2 through 5\n' +
+    '/start/,/end/p   select a regex range\n' +
+    '3!d              apply the command when line 3 is not selected\n\n' +
+    'Substitution flags\n' +
+    'g                replace all non-overlapping matches\n' +
+    'i                case-insensitive match\n' +
+    'p                print the pattern space if a replacement happened\n' +
+    '2, 3, ...        replace only that occurrence\n\n' +
+    'Supported commands\n' +
+    's  substitute text\n' +
+    'y  transliterate characters\n' +
+    'p/P print pattern space or first line of it\n' +
+    'd/D delete pattern space or first line of it\n' +
+    'n/N read or append the next input line\n' +
+    'q  quit\n' +
+    'a/i/c append, insert, or change text\n' +
+    'h/H/g/G/x use hold space\n' +
+    'b/t/: branch, test substitutions, and labels\n' +
+    '=  print the current line number\n' +
+    'l  print an unambiguous escaped form\n' +
+    '#  comment line; #n also enables -n\n' +
+    '{ } group commands under one address\n\n' +
+    'More examples\n' +
+    "sed -n '2,5p'        output only lines 2 through 5\n" +
+    '/^$/d               remove empty lines\n' +
+    'y/abc/ABC/          change a, b, c into A, B, C\n' +
+    'N;s/hello\\nworld/hi/ join two-line text and replace it\n' +
+    ':x;s/  / /g;tx      collapse repeated spaces\n\n' +
+    'Telegram limits\n' +
+    'SedBot works on the replied message text only. It cannot read stdin, command-line files, or script files. File-backed r, w, and s///w file are rejected because the bot has no user filesystem in chat mode.\n\n' +
+    `Support the project: ${DONATE_URL}`
   );
 }
 
-function parseSedCommand(command: string): ParsedSedCommand | null {
-  if (!command || command[0] !== 's') return null;
-  const sep = command[1];
-  if (!sep) return null;
+function parseSedInvocation(text: string): { script: string; options: SedOptions } | null {
+  const trimmed = text.trim();
+  if (!trimmed) return null;
 
-  const sections: string[] = [];
-  let current = '';
-  let escaped = false;
-
-  for (let i = 2; i < command.length; i += 1) {
-    const ch = command[i];
-    if (escaped) {
-      current += ch;
-      escaped = false;
-      continue;
-    }
-
-    if (ch === '\\') {
-      escaped = true;
-      current += ch;
-      continue;
-    }
-
-    if (ch === sep) {
-      sections.push(current);
-      current = '';
-      continue;
-    }
-
-    current += ch;
+  if (!trimmed.startsWith('sed ')) {
+    return looksLikeSedScript(trimmed) ? { script: trimmed, options: {} } : null;
   }
 
-  sections.push(current);
-  if (sections.length < 2) return null;
+  const tokens = trimmed.split(/\s+/);
+  const options: SedOptions = {};
+  const scripts: string[] = [];
+  const rest: string[] = [];
 
-  const pattern = sections[0];
-  const replacement = sections[1];
-  const flags = sections[2] ?? '';
-
-  if (pattern === undefined || replacement === undefined) return null;
-
-  if (/[^gim]/.test(flags)) {
-    throw new Error('Unsupported flags. Use only g, i, m');
+  for (let index = 1; index < tokens.length; index += 1) {
+    const token = tokens[index] ?? '';
+    if (token === '-n') {
+      options.suppressDefault = true;
+    } else if (token === '-E') {
+      options.extended = true;
+    } else if (token === '-En' || token === '-nE') {
+      options.suppressDefault = true;
+      options.extended = true;
+    } else if (token === '-e') {
+      const script = tokens[index + 1];
+      if (script) {
+        scripts.push(script);
+        index += 1;
+      }
+    } else {
+      rest.push(...tokens.slice(index));
+      break;
+    }
   }
 
-  return { pattern, replacement, flags };
+  if (rest.length > 0) scripts.push(rest.join(' '));
+  const script = scripts.join('\n');
+  return script ? { script, options } : null;
 }
 
-function extractSedCommand(text: string): string | null {
+function extractSedInvocation(text: string): { script: string; options: SedOptions } | null {
+  const direct = parseSedInvocation(text);
+  if (direct) return direct;
+
   const tokens = text.trim().split(/\s+/);
   for (const token of tokens) {
-    if (token.startsWith('s') && token.length >= 4) {
-      return token;
-    }
+    const invocation = parseSedInvocation(token);
+    if (invocation) return invocation;
   }
   return null;
+}
+
+function looksLikeSedScript(text: string): boolean {
+  const first = text.trimStart()[0];
+  return first !== undefined && /[0-9$/\\#!{}acdgGhHilnNpPqstyx:=]/.test(first);
 }
 
 async function answerGuestQuery(botToken: string, guestQueryId: string, text: string): Promise<void> {

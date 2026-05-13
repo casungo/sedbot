@@ -17,15 +17,16 @@
 
 ## 🤖 About
 
-SedBot is a Telegram bot that brings Unix `sed`-style text transformations to your chats. It lets you run regex-based search-and-replace operations on replied messages, including support for guest mode updates.
+SedBot is a Telegram bot that brings POSIX `sed`-style text transformations to your chats. It runs sed scripts against replied text messages, including support for guest mode updates.
 
 ![Example of how the bot behaves](./assets/example.gif)
 
 ## ✨ Features
 
-- 🔄 Replace text using regular expressions
-- 🎯 Support for global and case-insensitive replacements
-- 📝 Multiple replacement flags (`g`, `i`, `m`)
+- 🔄 Run sed scripts against replied text
+- 🎯 Support for addresses, ranges, grouped commands, labels, and hold space
+- 📝 Support for common POSIX commands including `s`, `y`, `p`, `d`, `D`, `n`, `N`, `q`, `a`, `c`, `i`, `b`, `t`, `h`, `H`, `g`, `G`, `x`, `l`, and `=`
+- 🔎 Supports `-n`, `-E`, and `s///` flags `g`, `i`, `p`, numeric occurrence selection, and text-mode `w` detection
 - 💬 Works in private chats, groups, and guest mode
 - ☁️ Designed for Cloudflare Workers deployment
 
@@ -66,7 +67,7 @@ curl -X POST "https://api.telegram.org/bot<TELEGRAM_BOT_TOKEN>/setWebhook" \
   -d 'allowed_updates=["message","guest_message"]'
 ```
 
-After deployment, the worker handles `/start` and `s/pattern/replacement/flags` commands from Telegram updates sent via webhook.
+After deployment, the worker handles `/start`, `/help`, and sed scripts from Telegram updates sent via webhook.
 
 If you are deploying from Cloudflare Pages CI, ensure the project type is **Workers** (not Pages static assets) and run `pnpm exec wrangler deploy --config wrangler.toml`.
 
@@ -78,23 +79,40 @@ Guest updates are stateless: the bot only receives the message that mentioned it
 
 ## 📖 Usage
 
-Reply to any message with a sed-style command:
+Commands:
+
+- `/start` - Show a short introduction and support link
+- `/help` - Show detailed syntax, examples, supported sed commands, and Telegram-mode limits
+
+Reply to any message with a sed script:
 
 ```
 s/pattern/replacement/flags
 ```
 
-Flags:
+You can also use a `sed` prefix for options:
 
-- `g` - Replace all occurrences (global)
-- `i` - Case-insensitive matching
-- `m` - Multiline matching
+```
+sed -n '/ERROR/p'
+sed -E 's/(cat|dog)/pet/g'
+```
+
+Supported `s///` flags:
+
+- `g` - replace all non-overlapping occurrences
+- `i` - case-insensitive matching
+- `p` - print the pattern space if a replacement was made
+- number - replace only that occurrence
 
 Examples:
 
 - `s/cat/dog/g` - Replace all instances of "cat" with "dog"
 - `s/ERROR/error/i` - Replace "ERROR" with "error" (case-insensitive)
 - `s/old//` - Remove the first occurrence of "old"
+- `sed -n '2,5p'` - Print only lines 2 through 5
+- `/start/,/end/d` - Delete a selected range
+
+Telegram text mode does not provide a filesystem, so file-backed POSIX `r`, `w`, and `s///w file` operations are rejected instead of reading or writing server files.
 
 ## 📄 License
 
