@@ -41,7 +41,7 @@ cd sedbot
 2. Install dependencies:
 
 ```bash
-npm install
+pnpm install
 ```
 
 3. Set worker secrets:
@@ -54,7 +54,7 @@ wrangler secret put TELEGRAM_WEBHOOK_SECRET
 4. Deploy:
 
 ```bash
-npm run deploy
+pnpm run deploy
 ```
 
 5. Configure Telegram webhook (replace placeholders):
@@ -68,7 +68,7 @@ curl -X POST "https://api.telegram.org/bot<TELEGRAM_BOT_TOKEN>/setWebhook" \
 
 After deployment, the worker handles `/start` and `s/pattern/replacement/flags` commands from Telegram updates sent via webhook.
 
-If you are deploying from Cloudflare Pages CI, ensure the project type is **Workers** (not Pages static assets) and run `pnpx wrangler deploy --config wrangler.toml`.
+If you are deploying from Cloudflare Pages CI, ensure the project type is **Workers** (not Pages static assets) and run `pnpm exec wrangler deploy --config wrangler.toml`.
 
 Guest Mode (Bot API 10.0) is supported: if enabled in BotFather, the worker processes `guest_message` updates and replies using `answerGuestQuery`.
 
