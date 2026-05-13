@@ -2,8 +2,8 @@ import { Bot, webhookCallback } from 'grammy';
 import { runSed, type SedOptions } from './sedEngine';
 
 interface Env {
-  TELEGRAM_BOT_TOKEN: string;
-  TELEGRAM_WEBHOOK_SECRET?: string;
+  TELEGRAM_BOT_TOKEN: SecretsStoreSecret;
+  TELEGRAM_WEBHOOK_SECRET?: SecretsStoreSecret;
   CF_PAGES?: string;
   CF_PAGES_BRANCH?: string;
 }
@@ -37,20 +37,21 @@ export default {
       return new Response('OK', { status: 200 });
     }
 
-    const secret = request.headers.get('X-Telegram-Bot-Api-Secret-Token');
-    if (env.TELEGRAM_WEBHOOK_SECRET && secret !== env.TELEGRAM_WEBHOOK_SECRET) {
-      return new Response('Unauthorized', { status: 401 });
-    }
-
-    let update: TelegramUpdate;
     try {
-      update = (await request.clone().json()) as TelegramUpdate;
-    } catch {
-      return new Response('Bad Request', { status: 400 });
-    }
+      const webhookSecret = await getOptionalSecret(env.TELEGRAM_WEBHOOK_SECRET);
+      const secret = request.headers.get('X-Telegram-Bot-Api-Secret-Token');
+      if (webhookSecret && secret !== webhookSecret) {
+        return new Response('Unauthorized', { status: 401 });
+      }
 
-    try {
-      const botToken = getBotToken(env);
+      let update: TelegramUpdate;
+      try {
+        update = (await request.clone().json()) as TelegramUpdate;
+      } catch {
+        return new Response('Bad Request', { status: 400 });
+      }
+
+      const botToken = await getBotToken(env);
       if (!botToken) {
         console.error(
           'Missing TELEGRAM_BOT_TOKEN; skipping update processing. Verify the secret is set on this exact Worker environment.'
@@ -73,9 +74,16 @@ export default {
   },
 };
 
-function getBotToken(env: Env): string | null {
-  const token = env.TELEGRAM_BOT_TOKEN?.trim();
+async function getBotToken(env: Env): Promise<string | null> {
+  const token = (await env.TELEGRAM_BOT_TOKEN.get()).trim();
   return token ? token : null;
+}
+
+async function getOptionalSecret(binding: SecretsStoreSecret | undefined): Promise<string | null> {
+  if (!binding) return null;
+
+  const value = (await binding.get()).trim();
+  return value ? value : null;
 }
 
 function getBot(botToken: string): Bot {

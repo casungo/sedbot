@@ -2,5 +2,15 @@ name = "sedbot"
 main = "worker.ts"
 compatibility_date = "2026-05-13"
 
+[[secrets_store_secrets]]
+binding = "TELEGRAM_BOT_TOKEN"
+store_id = "cd08b756d26b4b0e9f95cb87d1e14f08"
+secret_name = "SEDBOT_TELEGRAM_BOT_TOKEN"
+
+[[secrets_store_secrets]]
+binding = "TELEGRAM_WEBHOOK_SECRET"
+store_id = "cd08b756d26b4b0e9f95cb87d1e14f08"
+secret_name = "SEDBOT_TELEGRAM_WEBHOOK_SECRET"
+
 [observability]
 enabled = true

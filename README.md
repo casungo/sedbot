@@ -45,12 +45,20 @@ cd sedbot
 pnpm install
 ```
 
-3. Set worker secrets:
+3. Create the Secrets Store entries:
 
 ```bash
-wrangler secret put TELEGRAM_BOT_TOKEN
-wrangler secret put TELEGRAM_WEBHOOK_SECRET
+wrangler secrets-store secret create cd08b756d26b4b0e9f95cb87d1e14f08 --name SEDBOT_TELEGRAM_BOT_TOKEN --scopes workers --comment "SedBot Telegram bot token" --remote
+wrangler secrets-store secret create cd08b756d26b4b0e9f95cb87d1e14f08 --name SEDBOT_TELEGRAM_WEBHOOK_SECRET --scopes workers --comment "SedBot Telegram webhook secret" --remote
 ```
+
+The Worker binds those account-level secrets through `wrangler.toml`. For another Cloudflare account, replace the `store_id` in `wrangler.toml` with the ID from:
+
+```bash
+wrangler secrets-store store list --remote
+```
+
+For local development, create local Secrets Store entries by running the same `secret create` commands without `--remote`.
 
 4. Deploy:
 
