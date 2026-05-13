@@ -21,9 +21,6 @@ interface GuestMessage {
   reply_to_message?: {
     text?: string;
   };
-  quoted_message?: {
-    text?: string;
-  };
 }
 
 interface TelegramUpdate {
@@ -131,7 +128,7 @@ async function handleGuestUpdate(guestMessage: GuestMessage, botToken: string): 
       return;
     }
 
-    const sourceText = guestMessage.reply_to_message?.text ?? guestMessage.quoted_message?.text;
+    const sourceText = guestMessage.reply_to_message?.text;
     if (!sourceText) {
       await answerGuestQuery(botToken, queryId, 'I need a replied text message to transform.');
       return;
@@ -228,15 +225,23 @@ async function answerGuestQuery(botToken: string, guestQueryId: string, text: st
     guest_query_id: guestQueryId,
     result: {
       type: 'article',
-      id: guestQueryId,
+      id: 'sedbot-response',
       title: 'SedBot Response',
       input_message_content: {
-        message_text: text,
+        message_text: clampTelegramMessageText(text),
       },
     },
   };
 
   await telegramCall(endpoint, payload);
+}
+
+function clampTelegramMessageText(text: string): string {
+  const maxLength = 4096;
+  if (text.length <= maxLength) return text;
+
+  const suffix = '\n\n[truncated]';
+  return `${text.slice(0, maxLength - suffix.length)}${suffix}`;
 }
 
 async function telegramCall(endpoint: string, payload: unknown): Promise<void> {
