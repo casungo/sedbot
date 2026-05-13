@@ -1,5 +1,50 @@
+interface Env {
+  TELEGRAM_BOT_TOKEN: string;
+  TELEGRAM_WEBHOOK_SECRET?: string;
+}
+
+interface TelegramChat {
+  id: number;
+}
+
+interface TelegramMessage {
+  message_id: number;
+  text?: string;
+  chat: TelegramChat;
+  reply_to_message?: {
+    message_id: number;
+    text?: string;
+  };
+}
+
+interface GuestMessage {
+  guest_query_id?: string;
+  text?: string;
+  reply_to_message?: {
+    text?: string;
+  };
+  quoted_message?: {
+    text?: string;
+  };
+}
+
+interface TelegramUpdate {
+  message?: TelegramMessage;
+  guest_message?: GuestMessage;
+}
+
+interface ParsedSedCommand {
+  pattern: string;
+  replacement: string;
+  flags: string;
+}
+
+interface SendMessageExtra {
+  reply_to_message_id?: number;
+}
+
 export default {
-  async fetch(request, env) {
+  async fetch(request: Request, env: Env): Promise<Response> {
     if (request.method !== 'POST') {
       return new Response('OK', { status: 200 });
     }
@@ -9,23 +54,23 @@ export default {
       return new Response('Unauthorized', { status: 401 });
     }
 
-    let update;
+    let update: TelegramUpdate;
     try {
-      update = await request.json();
+      update = (await request.json()) as TelegramUpdate;
     } catch {
       return new Response('Bad Request', { status: 400 });
     }
 
     try {
-      if (update?.guest_message) {
+      if (update.guest_message) {
         await handleGuestUpdate(update.guest_message, env);
         return new Response('OK', { status: 200 });
       }
 
-      if (update?.message) {
+      if (update.message) {
         await handleMessageUpdate(update.message, env);
       }
-    } catch (error) {
+    } catch (error: unknown) {
       console.error('Error processing update', error);
     }
 
@@ -33,8 +78,8 @@ export default {
   },
 };
 
-async function handleMessageUpdate(message, env) {
-  if (!message?.text) return;
+async function handleMessageUpdate(message: TelegramMessage, env: Env): Promise<void> {
+  if (!message.text) return;
 
   if (message.text.startsWith('/start')) {
     await sendMessage(env, message.chat.id, helpText(), {
@@ -54,9 +99,9 @@ async function handleMessageUpdate(message, env) {
   });
 }
 
-async function handleGuestUpdate(guestMessage, env) {
-  const queryId = guestMessage?.guest_query_id;
-  const summonText = guestMessage?.text;
+async function handleGuestUpdate(guestMessage: GuestMessage, env: Env): Promise<void> {
+  const queryId = guestMessage.guest_query_id;
+  const summonText = guestMessage.text;
   if (!queryId || !summonText) return;
 
   try {
@@ -66,7 +111,7 @@ async function handleGuestUpdate(guestMessage, env) {
       return;
     }
 
-    const sourceText = guestMessage?.reply_to_message?.text || guestMessage?.quoted_message?.text;
+    const sourceText = guestMessage.reply_to_message?.text ?? guestMessage.quoted_message?.text;
     if (!sourceText) {
       await answerGuestQuery(env, queryId, 'I need a replied text message to transform.');
       return;
@@ -74,19 +119,20 @@ async function handleGuestUpdate(guestMessage, env) {
 
     const modified = applySed(sourceText, parsed);
     await answerGuestQuery(env, queryId, `Modified text:\n${modified}`);
-  } catch (error) {
-    await answerGuestQuery(env, queryId, `❌ Error: ${String(error.message || error)}`);
+  } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : String(error);
+    await answerGuestQuery(env, queryId, `❌ Error: ${message}`);
   }
 }
 
-function applySed(sourceText, parsed) {
+function applySed(sourceText: string, parsed: ParsedSedCommand): string {
   const { pattern, replacement, flags } = parsed;
   const jsFlags = `${flags.includes('i') ? 'i' : ''}${flags.includes('m') ? 'm' : ''}${flags.includes('g') ? 'g' : ''}`;
   const regex = new RegExp(pattern, jsFlags);
   return sourceText.replace(regex, replacement);
 }
 
-function helpText() {
+function helpText(): string {
   return (
     '👋 Welcome to SedBot!\n\n' +
     'Reply to any message with: s/pattern/replacement/flags\n\n' +
@@ -98,12 +144,12 @@ function helpText() {
   );
 }
 
-function parseSedCommand(command) {
+function parseSedCommand(command: string): ParsedSedCommand | null {
   if (!command || command[0] !== 's') return null;
   const sep = command[1];
   if (!sep) return null;
 
-  const sections = [];
+  const sections: string[] = [];
   let current = '';
   let escaped = false;
 
@@ -135,7 +181,9 @@ function parseSedCommand(command) {
 
   const pattern = sections[0];
   const replacement = sections[1];
-  const flags = sections[2] || '';
+  const flags = sections[2] ?? '';
+
+  if (pattern === undefined || replacement === undefined) return null;
 
   if (/[^gim]/.test(flags)) {
     throw new Error('Unsupported flags. Use only g, i, m');
@@ -144,7 +192,7 @@ function parseSedCommand(command) {
   return { pattern, replacement, flags };
 }
 
-async function sendMessage(env, chatId, text, extra = {}) {
+async function sendMessage(env: Env, chatId: number, text: string, extra: SendMessageExtra = {}): Promise<void> {
   const endpoint = `https://api.telegram.org/bot${env.TELEGRAM_BOT_TOKEN}/sendMessage`;
   const payload = {
     chat_id: chatId,
@@ -155,7 +203,7 @@ async function sendMessage(env, chatId, text, extra = {}) {
   await telegramCall(endpoint, payload);
 }
 
-async function answerGuestQuery(env, guestQueryId, text) {
+async function answerGuestQuery(env: Env, guestQueryId: string, text: string): Promise<void> {
   const endpoint = `https://api.telegram.org/bot${env.TELEGRAM_BOT_TOKEN}/answerGuestQuery`;
   const payload = {
     guest_query_id: guestQueryId,
@@ -165,7 +213,7 @@ async function answerGuestQuery(env, guestQueryId, text) {
   await telegramCall(endpoint, payload);
 }
 
-async function telegramCall(endpoint, payload) {
+async function telegramCall(endpoint: string, payload: Record<string, number | string>): Promise<void> {
   const response = await fetch(endpoint, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
