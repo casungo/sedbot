@@ -124,7 +124,8 @@ async function handleGuestUpdate(guestMessage: GuestMessage, botToken: string): 
   if (!queryId || !summonText) return;
 
   try {
-    const parsed = parseSedCommand(summonText);
+    const sedCommand = extractSedCommand(summonText);
+    const parsed = sedCommand ? parseSedCommand(sedCommand) : null;
     if (!parsed) {
       await answerGuestQuery(botToken, queryId, 'Reply with: s/pattern/replacement/flags and include a target message.');
       return;
@@ -211,17 +212,34 @@ function parseSedCommand(command: string): ParsedSedCommand | null {
   return { pattern, replacement, flags };
 }
 
+function extractSedCommand(text: string): string | null {
+  const tokens = text.trim().split(/\s+/);
+  for (const token of tokens) {
+    if (token.startsWith('s') && token.length >= 4) {
+      return token;
+    }
+  }
+  return null;
+}
+
 async function answerGuestQuery(botToken: string, guestQueryId: string, text: string): Promise<void> {
   const endpoint = `https://api.telegram.org/bot${botToken}/answerGuestQuery`;
   const payload = {
     guest_query_id: guestQueryId,
-    text,
+    result: {
+      type: 'article',
+      id: guestQueryId,
+      title: 'SedBot Response',
+      input_message_content: {
+        message_text: text,
+      },
+    },
   };
 
   await telegramCall(endpoint, payload);
 }
 
-async function telegramCall(endpoint: string, payload: Record<string, string>): Promise<void> {
+async function telegramCall(endpoint: string, payload: unknown): Promise<void> {
   const response = await fetch(endpoint, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
