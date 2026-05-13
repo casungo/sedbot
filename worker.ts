@@ -1,18 +1,14 @@
+import { Bot, webhookCallback } from 'grammy';
+
 interface Env {
   TELEGRAM_BOT_TOKEN: string;
   TELEGRAM_WEBHOOK_SECRET?: string;
 }
 
-interface TelegramChat {
-  id: number;
-}
-
 interface TelegramMessage {
   message_id: number;
   text?: string;
-  chat: TelegramChat;
   reply_to_message?: {
-    message_id: number;
     text?: string;
   };
 }
@@ -29,7 +25,6 @@ interface GuestMessage {
 }
 
 interface TelegramUpdate {
-  message?: TelegramMessage;
   guest_message?: GuestMessage;
 }
 
@@ -39,9 +34,7 @@ interface ParsedSedCommand {
   flags: string;
 }
 
-interface SendMessageExtra {
-  reply_to_message_id?: number;
-}
+const botCache = new Map<string, Bot>();
 
 export default {
   async fetch(request: Request, env: Env): Promise<Response> {
@@ -56,7 +49,7 @@ export default {
 
     let update: TelegramUpdate;
     try {
-      update = (await request.json()) as TelegramUpdate;
+      update = (await request.clone().json()) as TelegramUpdate;
     } catch {
       return new Response('Bad Request', { status: 400 });
     }
@@ -67,36 +60,47 @@ export default {
         return new Response('OK', { status: 200 });
       }
 
-      if (update.message) {
-        await handleMessageUpdate(update.message, env);
-      }
+      const bot = getBot(env);
+      const handler = webhookCallback(bot, 'cloudflare-mod');
+      return await handler(request);
     } catch (error: unknown) {
       console.error('Error processing update', error);
+      return new Response('OK', { status: 200 });
     }
-
-    return new Response('OK', { status: 200 });
   },
 };
 
-async function handleMessageUpdate(message: TelegramMessage, env: Env): Promise<void> {
-  if (!message.text) return;
+function getBot(env: Env): Bot {
+  const cached = botCache.get(env.TELEGRAM_BOT_TOKEN);
+  if (cached) return cached;
 
-  if (message.text.startsWith('/start')) {
-    await sendMessage(env, message.chat.id, helpText(), {
-      reply_to_message_id: message.message_id,
+  const bot = new Bot(env.TELEGRAM_BOT_TOKEN);
+
+  bot.command('start', async (ctx) => {
+    await ctx.reply(helpText(), {
+      reply_parameters: { message_id: ctx.msg.message_id },
     });
-    return;
-  }
-
-  if (!message.reply_to_message?.text) return;
-
-  const parsed = parseSedCommand(message.text);
-  if (!parsed) return;
-
-  const modified = applySed(message.reply_to_message.text, parsed);
-  await sendMessage(env, message.chat.id, `Modified text:\n${modified}`, {
-    reply_to_message_id: message.reply_to_message.message_id,
   });
+
+  bot.on('message:text', async (ctx) => {
+    const message = ctx.message as TelegramMessage;
+    if (!message.reply_to_message?.text) return;
+
+    const parsed = parseSedCommand(message.text ?? '');
+    if (!parsed) return;
+
+    const modified = applySed(message.reply_to_message.text, parsed);
+    await ctx.reply(`Modified text:\n${modified}`, {
+      reply_parameters: { message_id: message.message_id },
+    });
+  });
+
+  bot.catch((error) => {
+    console.error('grammY error', error.error);
+  });
+
+  botCache.set(env.TELEGRAM_BOT_TOKEN, bot);
+  return bot;
 }
 
 async function handleGuestUpdate(guestMessage: GuestMessage, env: Env): Promise<void> {
@@ -192,17 +196,6 @@ function parseSedCommand(command: string): ParsedSedCommand | null {
   return { pattern, replacement, flags };
 }
 
-async function sendMessage(env: Env, chatId: number, text: string, extra: SendMessageExtra = {}): Promise<void> {
-  const endpoint = `https://api.telegram.org/bot${env.TELEGRAM_BOT_TOKEN}/sendMessage`;
-  const payload = {
-    chat_id: chatId,
-    text,
-    ...extra,
-  };
-
-  await telegramCall(endpoint, payload);
-}
-
 async function answerGuestQuery(env: Env, guestQueryId: string, text: string): Promise<void> {
   const endpoint = `https://api.telegram.org/bot${env.TELEGRAM_BOT_TOKEN}/answerGuestQuery`;
   const payload = {
@@ -213,7 +206,7 @@ async function answerGuestQuery(env: Env, guestQueryId: string, text: string): P
   await telegramCall(endpoint, payload);
 }
 
-async function telegramCall(endpoint: string, payload: Record<string, number | string>): Promise<void> {
+async function telegramCall(endpoint: string, payload: Record<string, string>): Promise<void> {
   const response = await fetch(endpoint, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
