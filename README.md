@@ -59,6 +59,49 @@ pip install -r requirements.txt
 python main.py
 ```
 
+
+## ☁️ Deploy on Cloudflare Workers
+
+This repository now includes a Cloudflare Worker version of the bot in `worker.js`.
+
+1. Install dependencies:
+
+```bash
+npm install
+```
+
+2. Set worker secrets:
+
+```bash
+wrangler secret put TELEGRAM_BOT_TOKEN
+wrangler secret put TELEGRAM_WEBHOOK_SECRET
+```
+
+3. Deploy:
+
+```bash
+npm run deploy  # uses wrangler.toml explicitly
+```
+
+4. Configure Telegram webhook (replace placeholders):
+
+```bash
+curl -X POST "https://api.telegram.org/bot<TELEGRAM_BOT_TOKEN>/setWebhook" \
+  -d "url=https://<your-worker>.workers.dev" \
+  -d "secret_token=<TELEGRAM_WEBHOOK_SECRET>" \
+  -d 'allowed_updates=["message","guest_message"]'
+```
+
+After deployment, the worker handles `/start` and `s/pattern/replacement/flags` commands from Telegram updates sent via webhook.
+
+If you are deploying from Cloudflare Pages CI, ensure the project type is **Workers** (not Pages static assets) and run `pnpx wrangler deploy --config wrangler.toml`.
+
+Guest Mode (Bot API 10.0) is also supported: if enabled in BotFather, the worker processes `guest_message` updates and replies using `answerGuestQuery`.
+
+To verify Guest Mode is enabled, call `getMe` and check that `supports_guest_queries` is `true`.
+
+Guest updates are stateless: the bot only receives the message that mentioned it and optional replied context, not full chat history or member lists.
+
 ## 📖 Usage
 
 Reply to any message with a sed-style command:
