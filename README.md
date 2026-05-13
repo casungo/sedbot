@@ -4,9 +4,9 @@
 
 <p align="center">
 <a href="https://www.gnu.org/licenses/gpl-3.0.en.html"><img alt="license" src="https://img.shields.io/github/license/casungo/sedbot"/></a>
-<a href="https://python-telegram-bot.org/"><img alt="framework" src="https://img.shields.io/badge/framework-python--telegram--bot-informational"/></a>
 <a href="https://casungo.top"><img alt="author" src="https://img.shields.io/badge/author-casungo-red"/></a>
-<a href="https://python.org"><img alt="author" src="https://img.shields.io/badge/language-python-yellow"/></a>
+<a href="https://developer.mozilla.org/docs/Web/JavaScript"><img alt="language" src="https://img.shields.io/badge/language-javascript-yellow"/></a>
+<a href="https://workers.cloudflare.com/"><img alt="runtime" src="https://img.shields.io/badge/runtime-cloudflare--workers-orange"/></a>
 </p>
 
 <p align="center">
@@ -17,7 +17,7 @@
 
 ## 🤖 About
 
-SedBot is a powerful Telegram bot that brings the Unix `sed` command's text transformation capabilities to your chats. It allows you to perform regex-based search and replace operations on messages, making it perfect for quick text corrections and transformations.
+SedBot is a Telegram bot that brings Unix `sed`-style text transformations to your chats. It lets you run regex-based search-and-replace operations on replied messages, including support for guest mode updates.
 
 ![Example of how the bot behaves](./assets/example.gif)
 
@@ -25,65 +25,39 @@ SedBot is a powerful Telegram bot that brings the Unix `sed` command's text tran
 
 - 🔄 Replace text using regular expressions
 - 🎯 Support for global and case-insensitive replacements
-- 📝 Multiple replacement flags (g, i, m)
-- 💬 Works in both private chats and groups
-- 🚀 Fast and reliable performance
+- 📝 Multiple replacement flags (`g`, `i`, `m`)
+- 💬 Works in private chats, groups, and guest mode
+- ☁️ Designed for Cloudflare Workers deployment
 
-## 🛠️ Installation
+## ☁️ Deploy on Cloudflare Workers
 
 1. Clone this repository:
 
 ```bash
 git clone https://github.com/casungo/sedbot.git
-```
-
-```bash
 cd sedbot
 ```
 
 2. Install dependencies:
 
 ```bash
-pip install -r requirements.txt
+pnpm install
 ```
 
-3. Set up your bot:
-
-   - Get a token from [@BotFather](https://t.me/botfather)
-   - Rename `.env.sample` to `.env`
-   - Add your bot token to `.env`
-
-4. Start the bot:
-
-```bash
-python main.py
-```
-
-
-## ☁️ Deploy on Cloudflare Workers
-
-This repository now includes a Cloudflare Worker version of the bot in `worker.js`.
-
-1. Install dependencies:
-
-```bash
-npm install
-```
-
-2. Set worker secrets:
+3. Set worker secrets:
 
 ```bash
 wrangler secret put TELEGRAM_BOT_TOKEN
 wrangler secret put TELEGRAM_WEBHOOK_SECRET
 ```
 
-3. Deploy:
+4. Deploy:
 
 ```bash
-npm run deploy  # uses wrangler.toml explicitly
+pnpm run deploy
 ```
 
-4. Configure Telegram webhook (replace placeholders):
+5. Configure Telegram webhook (replace placeholders):
 
 ```bash
 curl -X POST "https://api.telegram.org/bot<TELEGRAM_BOT_TOKEN>/setWebhook" \
@@ -94,9 +68,9 @@ curl -X POST "https://api.telegram.org/bot<TELEGRAM_BOT_TOKEN>/setWebhook" \
 
 After deployment, the worker handles `/start` and `s/pattern/replacement/flags` commands from Telegram updates sent via webhook.
 
-If you are deploying from Cloudflare Pages CI, ensure the project type is **Workers** (not Pages static assets) and run `pnpx wrangler deploy --config wrangler.toml`.
+If you are deploying from Cloudflare Pages CI, ensure the project type is **Workers** (not Pages static assets) and run `pnpm exec wrangler deploy --config wrangler.toml`.
 
-Guest Mode (Bot API 10.0) is also supported: if enabled in BotFather, the worker processes `guest_message` updates and replies using `answerGuestQuery`.
+Guest Mode (Bot API 10.0) is supported: if enabled in BotFather, the worker processes `guest_message` updates and replies using `answerGuestQuery`.
 
 To verify Guest Mode is enabled, call `getMe` and check that `supports_guest_queries` is `true`.
 
