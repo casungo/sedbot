@@ -3,6 +3,9 @@ export interface SedOptions {
   suppressDefault?: boolean;
 }
 
+const MAX_COMMAND_STEPS = 50_000;
+const MAX_OUTPUT_LENGTH = 4_096;
+
 interface SedProgram {
   commands: SedCommand[];
   labels: Map<string, number>;
@@ -42,6 +45,9 @@ interface SedRuntime {
   quit: boolean;
   deleted: boolean;
   restart: boolean;
+  steps: number;
+  outputLength: number;
+  outputItems: number;
   suppressDefault: boolean;
   extended: boolean;
 }
@@ -67,6 +73,9 @@ export function runSed(script: string, input: string, options: SedOptions = {}):
     quit: false,
     deleted: false,
     restart: false,
+    steps: 0,
+    outputLength: 0,
+    outputItems: 0,
     suppressDefault: program.suppressDefault,
     extended: options.extended ?? false,
   };
@@ -267,6 +276,7 @@ function executeCommands(commands: SedCommand[], program: SedProgram, runtime: S
   for (let pc = 0; pc < commands.length && !runtime.quit && !runtime.deleted; pc += 1) {
     const command = commands[pc];
     if (!command || !commandSelected(command, runtime)) continue;
+    if (++runtime.steps > MAX_COMMAND_STEPS) throw new Error('Sed script exceeded the execution limit');
 
     switch (command.verb) {
       case '#':
@@ -276,7 +286,7 @@ function executeCommands(commands: SedCommand[], program: SedProgram, runtime: S
         executeCommands(command.children ?? [], program, runtime);
         break;
       case 'a':
-        runtime.pending.push(command.text ?? '');
+        queuePending(runtime, command.text ?? '');
         break;
       case 'i':
         emit(runtime, command.text ?? '');
@@ -670,12 +680,27 @@ function splitInputLines(input: string): string[] {
 }
 
 function emit(runtime: SedRuntime, text: string): void {
+  reserveOutput(runtime, text);
   runtime.output.push(text);
 }
 
 function flushPending(runtime: SedRuntime): void {
-  for (const text of runtime.pending) emit(runtime, text);
+  runtime.output.push(...runtime.pending);
   runtime.pending = [];
+}
+
+function queuePending(runtime: SedRuntime, text: string): void {
+  reserveOutput(runtime, text);
+  runtime.pending.push(text);
+}
+
+function reserveOutput(runtime: SedRuntime, text: string): void {
+  const separatorLength = runtime.outputItems === 0 ? 0 : 1;
+  if (runtime.outputLength + separatorLength + text.length > MAX_OUTPUT_LENGTH) {
+    throw new Error('Sed script exceeded the output limit');
+  }
+  runtime.outputLength += separatorLength + text.length;
+  runtime.outputItems += 1;
 }
 
 function unescapeYString(value: string, delimiter: string): string {

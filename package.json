@@ -6,6 +6,7 @@
     "deploy": "wrangler deploy --config wrangler.toml",
     "dev": "wrangler dev --config wrangler.toml",
     "deploy:worker": "wrangler deploy --config wrangler.toml",
+    "test": "node --experimental-strip-types --test test/*.test.ts",
     "typecheck": "tsc --noEmit"
   },
   "devDependencies": {

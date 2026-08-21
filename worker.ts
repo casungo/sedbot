@@ -113,7 +113,7 @@ function getBot(botToken: string): Bot {
 
     try {
       const modified = runSed(invocation.script, message.reply_to_message.text, invocation.options);
-      await ctx.reply(`Modified text:\n${modified}`, {
+      await ctx.reply(clampTelegramMessageText(`Modified text:\n${modified}`), {
         reply_parameters: { message_id: message.message_id },
       });
     } catch (error: unknown) {
